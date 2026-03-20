@@ -1,0 +1,501 @@
+{
+  "name": "TripOrg AI Assistant (Groq)",
+  "nodes": [
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.chatInput }}",
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        1472,
+        832
+      ],
+      "id": "03d40ece-15c1-46d7-ab65-ac7ea3cc9fdd",
+      "name": "Basic LLM Chain",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "model": "llama-3.3-70b-versatile",
+        "options": {
+          "maxTokensToSample": 500,
+          "temperature": 0.7
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        1472,
+        1024
+      ],
+      "id": "67f8f28f-d23e-477c-89dc-5b1fb80e40f8",
+      "name": "Groq Chat Model",
+      "credentials": {
+        "groqApi": {
+          "id": "hwH5go59sJzrkPm3",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-tripId",
+              "leftValue": "={{ $json.body.tripId }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            },
+            {
+              "id": "condition-sessionId",
+              "leftValue": "={{ $json.body.sessionId }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            },
+            {
+              "id": "condition-userMessage",
+              "leftValue": "={{ $json.body.userMessage }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            },
+            {
+              "id": "condition-authToken",
+              "leftValue": "={{ $json.body.authToken }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "3557fe8e-107b-42ca-9de2-585358ef79d4",
+      "name": "Validate Input",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        320,
+        848
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "triporg-ai",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "830771fc-1202-411e-b766-1fee5c80e681",
+      "name": "Webhook Trigger1",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        96,
+        848
+      ],
+      "webhookId": "triporg-ai-webhook"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ error: 'Missing required fields: tripId, sessionId, userMessage, authToken' }) }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "db3625aa-4b4b-45c4-b389-e843a4b34087",
+      "name": "Respond Validation Error1",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        544,
+        1040
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=http://triporg-backend:8080/api/v1/trips/{{ $json.body.tripId }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.body.authToken }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "0e8b2cb4-93c6-4219-bef9-db6bb637dc2e",
+      "name": "Fetch Trip Data1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        544,
+        832
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=http://triporg-backend:8080/api/v1/trips/{{ $('Webhook Trigger1').item.json.body.tripId }}/budget",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Webhook Trigger1').item.json.body.authToken }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c1edffe3-e9d2-45eb-9cd9-43536e901b1e",
+      "name": "Fetch Budget Summary1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        768,
+        832
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=http://triporg-backend:8080/api/v1/trips/{{ $('Webhook Trigger1').item.json.body.tripId }}/ai-chat/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Webhook Trigger1').item.json.body.authToken }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "0b3a9664-564a-4a47-a1b9-f519d1206cba",
+      "name": "Fetch Conversation History1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        976,
+        832
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get all the fetched data\nconst webhookData = $('Webhook Trigger1').item.json.body;\nconst tripData = $('Fetch Trip Data1').item.json.trip;\nconst budgetData = $('Fetch Budget Summary1').item.json.summary;\nconst messagesData = $('Fetch Conversation History1').item.json.messages || [];\n\n// Limit conversation history to last 10 messages to avoid token overflow\nconst recentMessages = messagesData.slice(-10);\n\n// Format conversation history as text\nconst conversationHistory = recentMessages.map(m => {\n  const role = m.role === 'user' ? 'User' : 'Assistant';\n  return `${role}: ${m.content}`;\n}).join('\\n');\n\n// Format activities\nconst activities = (tripData.activities || []).map(a => {\n  const cost = a.estimatedCost ? ` (est. ${a.estimatedCost} ${tripData.baseCurrency})` : '';\n  return `- ${a.name}${cost}`;\n}).join('\\n') || 'None planned';\n\n// Format accommodation\nlet accommodation = 'Not set';\nif (tripData.accommodation) {\n  const acc = tripData.accommodation;\n  accommodation = `${acc.type}: ${acc.name || 'N/A'} at ${acc.address || 'N/A'}`;\n  if (acc.pricePerNight) {\n    accommodation += ` (${acc.pricePerNight} ${tripData.baseCurrency}/night)`;\n  }\n}\n\n// Format budget summary\nlet budgetInfo = 'No expenses yet';\nif (budgetData && budgetData.totalSharedCost) {\n  budgetInfo = `Total shared cost: ${budgetData.totalSharedCost} ${tripData.baseCurrency}`;\n  if (budgetData.costPerParticipant) {\n    budgetInfo += `\\nCost per person: ${budgetData.costPerParticipant} ${tripData.baseCurrency}`;\n  }\n  if (budgetData.expensesByCategory) {\n    const categories = Object.entries(budgetData.expensesByCategory)\n      .map(([cat, amount]) => `  - ${cat}: ${amount}`)\n      .join('\\n');\n    if (categories) {\n      budgetInfo += `\\nExpenses by category:\\n${categories}`;\n    }\n  }\n}\n\n// Build the complete prompt for LLM Chain (single text format)\nconst systemContext = `You are a helpful AI travel assistant for the trip planning app \"TripOrg\".\n\n=== TRIP CONTEXT ===\nTrip Name: ${tripData.name}\nDestination: ${tripData.city}, ${tripData.country}${tripData.specificPlace ? ` (${tripData.specificPlace})` : ''}\nDates: ${tripData.startDate} to ${tripData.endDate}\nCurrency: ${tripData.baseCurrency}\nTransport: ${tripData.transportType || 'Not set'} (${tripData.ticketsStatus || 'status unknown'})\nAccommodation: ${accommodation}\nFood Strategy: ${tripData.foodStrategy || 'Not set'}${tripData.estimatedDailyFoodBudgetPerPerson ? ` (${tripData.estimatedDailyFoodBudgetPerPerson} ${tripData.baseCurrency}/day/person)` : ''}\nParticipants: ${(tripData.participants || []).length} people\n\n=== PLANNED ACTIVITIES ===\n${activities}\n\n=== BUDGET OVERVIEW ===\n${budgetInfo}\n\n=== YOUR ROLE ===\n- Answer questions about this trip\n- Provide travel advice relevant to the destination\n- Help with budget planning and cost estimation\n- Suggest activities, restaurants, and local tips\n- Be concise but helpful\n- Always consider the trip dates and budget when making suggestions\n\nIMPORTANT: You only have context about THIS trip. Do not make assumptions about other trips or user preferences outside this context.`;\n\n// Build the full prompt with conversation history\nlet fullPrompt = systemContext;\n\nif (conversationHistory) {\n  fullPrompt += `\\n\\n=== CONVERSATION HISTORY ===\\n${conversationHistory}`;\n}\n\nfullPrompt += `\\n\\n=== CURRENT QUESTION ===\\nUser: ${webhookData.userMessage}\\n\\nAssistant:`;\n\nreturn {\n  tripId: webhookData.tripId,\n  sessionId: webhookData.sessionId,\n  authToken: webhookData.authToken,\n  chatInput: fullPrompt\n};"
+      },
+      "id": "fbb3547e-e3d6-4a3f-941e-0fae293b3937",
+      "name": "Build AI Prompt1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        832
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get input from LLM Chain\nconst input = $input.first().json;\nconst promptData = $('Build AI Prompt1').item.json;\n\n// LLM Chain returns response in 'text' field\nlet aiResponse = '';\n\nif (input.text) {\n  // Standard LLM Chain output\n  aiResponse = input.text.trim();\n} else if (input.response) {\n  // Alternative output format\n  aiResponse = input.response.trim();\n} else if (typeof input === 'string') {\n  // Direct string output\n  aiResponse = input.trim();\n} else {\n  // Fallback - try to extract any text content\n  aiResponse = 'I apologize, but I was unable to generate a response. Please try again.';\n  console.log('Unexpected LLM Chain output:', JSON.stringify(input));\n}\n\n// Ensure response is not empty\nif (!aiResponse || aiResponse.length === 0) {\n  aiResponse = 'I apologize, but I was unable to generate a response. Please try again.';\n}\n\n// Limit response length (safety measure)\nif (aiResponse.length > 4000) {\n  aiResponse = aiResponse.substring(0, 4000) + '...';\n}\n\nreturn {\n  tripId: promptData.tripId,\n  sessionId: promptData.sessionId,\n  authToken: promptData.authToken,\n  aiResponse: aiResponse\n};"
+      },
+      "id": "4ab285e8-709c-4adc-bea5-9278e4308210",
+      "name": "Normalize Response1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1776,
+        704
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://triporg-backend:8080/api/v1/trips/{{ $json.tripId }}/ai-chat/response",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.authToken }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"sessionId\": \"{{ $json.sessionId }}\",\n  \"content\": {{ JSON.stringify($json.aiResponse) }}\n}",
+        "options": {}
+      },
+      "id": "07792678-94c6-457a-9f12-77f761b1aec3",
+      "name": "Save AI Response to Backend1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2000,
+        704
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, message: 'AI response saved' }) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "bb5b32e4-ebb6-4a47-95bf-35f07b4b0e3e",
+      "name": "Respond Success1",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        2224,
+        704
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Error handler - ensures session is unlocked on failure\nconst webhookData = $('Webhook Trigger1').item.json.body;\n\nconsole.error('AI workflow error. Attempting to unlock session...');\n\nreturn {\n  tripId: webhookData.tripId,\n  sessionId: webhookData.sessionId,\n  authToken: webhookData.authToken,\n  error: true\n};"
+      },
+      "id": "d2111aa5-3cf8-4905-8b57-1bfb6ad581af",
+      "name": "Error Handler1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1776,
+        960
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://triporg-backend:8080/api/v1/trips/{{ $json.tripId }}/ai-chat/lock",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.authToken }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{ \"lock\": false }",
+        "options": {}
+      },
+      "id": "f2c10032-1514-492d-a7da-b07c5eff844a",
+      "name": "Unlock Session on Error1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2000,
+        960
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: false, error: 'AI processing failed, session unlocked' }) }}",
+        "options": {
+          "responseCode": 500
+        }
+      },
+      "id": "f811c296-8ead-4593-a643-a0d7b3746b75",
+      "name": "Respond Error1",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        2224,
+        960
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "Normalize Response1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error Handler1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Input": {
+      "main": [
+        [
+          {
+            "node": "Fetch Trip Data1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Validation Error1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook Trigger1": {
+      "main": [
+        [
+          {
+            "node": "Validate Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Trip Data1": {
+      "main": [
+        [
+          {
+            "node": "Fetch Budget Summary1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Budget Summary1": {
+      "main": [
+        [
+          {
+            "node": "Fetch Conversation History1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Conversation History1": {
+      "main": [
+        [
+          {
+            "node": "Build AI Prompt1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build AI Prompt1": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Response1": {
+      "main": [
+        [
+          {
+            "node": "Save AI Response to Backend1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save AI Response to Backend1": {
+      "main": [
+        [
+          {
+            "node": "Respond Success1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error Handler1": {
+      "main": [
+        [
+          {
+            "node": "Unlock Session on Error1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Unlock Session on Error1": {
+      "main": [
+        [
+          {
+            "node": "Respond Error1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "b17975ff-1572-406f-8034-2024ddc89e50",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "17dbe14f73a711a23a82e583e65fe7d6f1c8cde67e990a10029148d00dd26a86"
+  },
+  "id": "CZ0yWAqZ9OindEGT",
+  "tags": []
+}

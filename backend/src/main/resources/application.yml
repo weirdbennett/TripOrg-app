@@ -1,0 +1,75 @@
+spring:
+  application:
+    name: triporg-backend
+  
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:triporg}
+    username: ${DB_USERNAME:triporg}
+    password: ${DB_PASSWORD:triporg}
+    driver-class-name: org.postgresql.Driver
+  
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+  
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+  
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 10MB
+      max-request-size: 10MB
+  
+  mail:
+    host: ${MAIL_HOST:localhost}
+    port: ${MAIL_PORT:1025}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: false
+          starttls:
+            enable: false
+
+server:
+  port: ${SERVER_PORT:8080}
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:triporg-jwt-secret-key-must-be-at-least-256-bits-long-for-hs256}
+    expiration-ms: ${JWT_EXPIRATION:86400000}
+  
+  cors:
+    allowed-origins: ${CORS_ORIGINS:http://localhost:5173,http://localhost:3000}
+  
+  file:
+    upload-dir: ${FILE_UPLOAD_DIR:./uploads}
+  
+  n8n:
+    enabled: ${N8N_ENABLED:true}
+    webhook-url: ${N8N_WEBHOOK_URL:http://triporg-n8n:5678/webhook/triporg-ai}
+  
+  frontend-url: ${FRONTEND_URL:http://localhost:3000}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when-authorized
+
+logging:
+  level:
+    com.triporg: DEBUG
+    org.springframework.security: INFO

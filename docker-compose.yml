@@ -1,0 +1,97 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: triporg-postgres
+    environment:
+      POSTGRES_DB: ${DB_NAME:-triporg}
+      POSTGRES_USER: ${DB_USERNAME:-triporg}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-triporg}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - triporg-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U triporg -d triporg"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    container_name: triporg-backend
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-triporg}
+      DB_USERNAME: ${DB_USERNAME:-triporg}
+      DB_PASSWORD: ${DB_PASSWORD:-triporg}
+      JWT_SECRET: ${JWT_SECRET:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOnRydWUsImlhdCI6MTUxNjIzOTAyMn0.KMUFsIDTnFmyG3nMiGM6H9FNFUROf3wh7SmqJp-QV30}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-86400000}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost,http://localhost:3000}
+      FILE_UPLOAD_DIR: /app/uploads
+      SERVER_PORT: 8080
+      N8N_ENABLED: ${N8N_ENABLED:-true}
+      N8N_WEBHOOK_URL: ${N8N_WEBHOOK_URL:-http://triporg-n8n:5678/webhook/triporg-ai}
+      MAIL_HOST: mailpit
+      MAIL_PORT: 1025
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+    ports:
+      - "8080:8080"
+    volumes:
+      - uploads:/app/uploads
+    networks:
+      - triporg-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build: .
+    container_name: triporg-frontend
+    environment:
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:8080/api/v1}
+    ports:
+      - "3000:3000"
+    networks:
+      - triporg-network
+    depends_on:
+      - backend
+
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: triporg-mailpit
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    networks:
+      - triporg-network
+    restart: unless-stopped
+
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: triporg-n8n
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=false
+      - N8N_HOST=localhost
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - WEBHOOK_URL=http://triporg-n8n:5678/
+      - N8N_EDITOR_BASE_URL=http://localhost:5678
+    ports:
+      - "5678:5678"
+    volumes:
+      - n8n_data:/home/node/.n8n
+    networks:
+      - triporg-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  uploads:
+  n8n_data:
+
+networks:
+  triporg-network:
+    driver: bridge
