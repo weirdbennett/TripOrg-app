@@ -119,14 +119,6 @@ triporg/
 | `FRONTEND_URL` | Frontend URL for emails | `http://localhost:3000` |
 | `N8N_ENABLED` | Enable AI integration | `true` |
 
-## API Documentation
-
-See [docs/API_CONTRACT.md](docs/API_CONTRACT.md) for complete REST API specification.
-
-## Architecture
-
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed architecture documentation.
-
 ## Security Notes
 
 For production deployment:
